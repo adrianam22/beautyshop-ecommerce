@@ -1,0 +1,22 @@
+# Created by venv; see https://docs.python.org/3/library/venv.html
+# Python
+__pycache__/
+*.py[cod]
+
+# Django
+*.sqlite3
+media/
+staticfiles/
+
+# Env
+venv/
+env/
+.env
+
+# Node
+node_modules/
+
+# PyCharm
+.idea/
+.DS_Store
+
