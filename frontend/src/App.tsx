@@ -22,6 +22,10 @@ export default function App() {
           <Route path="/auth" element={<Auth />} />
           <Route path="/products" element={<Products />} />
           <Route path="/categories" element={<Categories />} />
+          <Route path="/wishlist" element={<Wishlist />} />
+          <Route path="/cart" element={<Cart />} />
+          <Route path="/checkout" element={<Checkout />} />
+          <Route path="/orders" element={<Orders />} />
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/dashboard/categories" element={<DashboardCategories />} />
           <Route path="/dashboard/products" element={<DashboardProducts />} />
