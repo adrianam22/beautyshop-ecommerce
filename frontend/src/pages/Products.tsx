@@ -5,6 +5,7 @@ export default function ProductsPage() {
   const [products, setProducts] = useState<any[]>([]);
   const [categories, setCategories] = useState<any[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<number | null>(null);
+  const [wishlistProductIds, setWishlistProductIds] = useState<number[]>([]);
 
   function loadCategories() {
     fetch("http://127.0.0.1:8000/api/products/categories/")
@@ -40,7 +41,89 @@ export default function ProductsPage() {
 
   useEffect(() => {
     loadProducts();
+    loadWishlist();
   }, [selectedCategory]);
+
+  function loadWishlist() {
+    const token = localStorage.getItem("access");
+    if (!token) return;
+
+    fetch("http://127.0.0.1:8000/api/products/wishlist/", {
+      headers: { Authorization: "Bearer " + token },
+    })
+      .then((r) => r.json())
+      .then((data) => {
+        const ids = data.products?.map((p: any) => p.id) || [];
+        setWishlistProductIds(ids);
+      })
+      .catch(() => {});
+  }
+
+  function addToWishlist(productId: number) {
+    const token = localStorage.getItem("access");
+    if (!token) {
+      alert("Please login to add products to wishlist");
+      return;
+    }
+
+    fetch("http://127.0.0.1:8000/api/products/wishlist/", {
+      method: "POST",
+      headers: {
+        Authorization: "Bearer " + token,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ product_id: productId }),
+    })
+      .then((r) => r.json())
+      .then(() => {
+        setWishlistProductIds([...wishlistProductIds, productId]);
+      })
+      .catch((err) => {
+        alert("Error: " + (err.detail || "Unknown error"));
+      });
+  }
+
+  function removeFromWishlist(productId: number) {
+    const token = localStorage.getItem("access");
+    if (!token) return;
+
+    fetch("http://127.0.0.1:8000/api/products/wishlist/", {
+      method: "DELETE",
+      headers: {
+        Authorization: "Bearer " + token,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ product_id: productId }),
+    })
+      .then(() => {
+        setWishlistProductIds(wishlistProductIds.filter((id) => id !== productId));
+      })
+      .catch(() => {});
+  }
+
+  function addToCart(productId: number) {
+    const token = localStorage.getItem("access");
+    if (!token) {
+      alert("Please login to add items to cart");
+      return;
+    }
+
+    fetch("http://127.0.0.1:8000/api/products/cart/", {
+      method: "POST",
+      headers: {
+        Authorization: "Bearer " + token,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ product_id: productId, quantity: 1 }),
+    })
+      .then((r) => r.json())
+      .then(() => {
+        alert("Product added to cart!");
+      })
+      .catch((err) => {
+        alert("Error: " + (err.detail || "Unknown error"));
+      });
+  }
 
   return (
     <div className="products-page-container">
@@ -106,7 +189,31 @@ export default function ProductsPage() {
                       className="modern-product-image"
                     />
                     <div className="product-overlay">
-                      <button className="quick-view-btn">👁️ Quick View</button>
+                      <div className="product-overlay-buttons">
+                        <button
+                          className="quick-view-btn"
+                          onClick={() => addToCart(p.id)}
+                        >
+                          🛒 Add to Cart
+                        </button>
+                        {wishlistProductIds.includes(p.id) ? (
+                          <button
+                            className="wishlist-btn active"
+                            onClick={() => removeFromWishlist(p.id)}
+                            title="Remove from wishlist"
+                          >
+                            ❤️
+                          </button>
+                        ) : (
+                          <button
+                            className="wishlist-btn"
+                            onClick={() => addToWishlist(p.id)}
+                            title="Add to wishlist"
+                          >
+                            🤍
+                          </button>
+                        )}
+                      </div>
                     </div>
                   </div>
 
@@ -115,7 +222,12 @@ export default function ProductsPage() {
                     <h3 className="product-name">{p.name}</h3>
                     <div className="product-footer">
                       <span className="product-price">{p.price} RON</span>
-                      <button className="add-to-cart-btn">🛒 Add</button>
+                      <button
+                        className="add-to-cart-btn"
+                        onClick={() => addToCart(p.id)}
+                      >
+                        🛒 Add
+                      </button>
                     </div>
                   </div>
                 </div>

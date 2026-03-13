@@ -27,6 +27,14 @@ export default function Navbar() {
 
           <Link to="/products">Products</Link>
 
+          {user && (
+            <>
+              <Link to="/wishlist">❤️ Wishlist</Link>
+              <Link to="/cart">🛒 Cart</Link>
+              <Link to="/orders">📦 Orders</Link>
+            </>
+          )}
+
           {user?.is_admin && (
             <Link to="/dashboard">Dashboard</Link>
           )}

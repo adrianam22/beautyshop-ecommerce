@@ -1,4 +1,5 @@
 from rest_framework import generics, permissions
+from django.contrib.auth import authenticate
 from .models import User
 from .serializers import UserSerializer
 from rest_framework_simplejwt.views import TokenObtainPairView
@@ -6,6 +7,7 @@ from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.views import APIView
 from rest_framework.response import Response
+from rest_framework import exceptions
 
 class RegisterView(generics.CreateAPIView):
     queryset = User.objects.all()
@@ -24,12 +26,47 @@ class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
         return token
 
     def validate(self, attrs):
-        data = super().validate(attrs)
+        username_or_email = attrs.get("username")
+        password = attrs.get("password")
 
-        data["username"] = self.user.username
-        data["email"] = self.user.email
-        data["first_name"] = self.user.first_name or ""
-        data["is_admin"] = self.user.is_staff
+        user = None
+        try:
+            user = User.objects.get(username=username_or_email)
+        except User.DoesNotExist:
+            try:
+                user = User.objects.get(email=username_or_email)
+                username_or_email = user.username
+            except User.DoesNotExist:
+                pass
+
+        if user:
+            credentials = {
+                'username': username_or_email,
+                'password': password
+            }
+            user = authenticate(**credentials)
+
+        if not user:
+            raise exceptions.AuthenticationFailed(
+                'No active account found with the given credentials',
+                'no_active_account',
+            )
+
+        if not user.is_active:
+            raise exceptions.AuthenticationFailed(
+                'User account is disabled.',
+                'user_inactive',
+            )
+
+        refresh = self.get_token(user)
+
+        data = {}
+        data['refresh'] = str(refresh)
+        data['access'] = str(refresh.access_token)
+        data['username'] = user.username
+        data['email'] = user.email
+        data['first_name'] = user.first_name or ""
+        data['is_admin'] = user.is_staff
 
         return data
 

@@ -10,6 +10,10 @@ import { UserProvider } from "./context/UserContext";
 import Dashboard from "./pages/Dashboard";
 import DashboardCategories from "./pages/DashboardCategories";
 import DashboardProducts from "./pages/DashboardProducts";
+import Wishlist from "./pages/Wishlist";
+import Cart from "./pages/Cart";
+import Checkout from "./pages/Checkout";
+import Orders from "./pages/Orders";
 
 export default function App() {
   return (
@@ -22,6 +26,10 @@ export default function App() {
           <Route path="/auth" element={<Auth />} />
           <Route path="/products" element={<Products />} />
           <Route path="/categories" element={<Categories />} />
+          <Route path="/wishlist" element={<Wishlist />} />
+          <Route path="/cart" element={<Cart />} />
+          <Route path="/checkout" element={<Checkout />} />
+          <Route path="/orders" element={<Orders />} />
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/dashboard/categories" element={<DashboardCategories />} />
           <Route path="/dashboard/products" element={<DashboardProducts />} />
