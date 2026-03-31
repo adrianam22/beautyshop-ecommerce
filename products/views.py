@@ -4,15 +4,19 @@ from rest_framework.response import Response
 from rest_framework import status, generics
 from rest_framework.permissions import IsAuthenticated, IsAdminUser
 from django.shortcuts import get_object_or_404
+from django.http import HttpResponse, Http404
 from decimal import Decimal
 from .models import Category, Product, Wishlist, Cart, CartItem, Order, OrderItem
 from .serializers import (
     CategorySerializer, ProductSerializer, WishlistSerializer,
     CartSerializer, CartItemSerializer, OrderSerializer, OrderItemSerializer
 )
+from .utils import search_products_tfidf
+
 
 class CategoryListCreate(APIView):
     permission_classes = [AllowAny]
+
     def get(self, request):
         categories = Category.objects.all()
         serializer = CategorySerializer(categories, many=True)
@@ -55,9 +59,11 @@ class CategoryDetail(APIView):
         category.delete()
         return Response(status=204)
 
+
 class ProductListCreateView(generics.ListCreateAPIView):
     queryset = Product.objects.all()
     serializer_class = ProductSerializer
+
     def get_permissions(self):
         if self.request.method == "GET":
             return [AllowAny()]
@@ -72,13 +78,22 @@ class ProductListCreateView(generics.ListCreateAPIView):
 
         return qs
 
+
 class ProductDetailView(generics.RetrieveUpdateDestroyAPIView):
     queryset = Product.objects.all()
     serializer_class = ProductSerializer
+
     def get_permissions(self):
         if self.request.method == "GET":
             return [AllowAny()]
         return [IsAdminUser()]
+
+    def perform_update(self, serializer):
+        instance = serializer.save()
+        # Regenerate PDF after every update (signal handles it automatically,
+        # but we refresh the instance so the response contains the new pdf_file)
+        instance.refresh_from_db(fields=['pdf_file'])
+
 
 class WishlistView(APIView):
     permission_classes = [IsAuthenticated]
@@ -91,10 +106,10 @@ class WishlistView(APIView):
     def post(self, request):
         wishlist, created = Wishlist.objects.get_or_create(user=request.user)
         product_id = request.data.get('product_id')
-        
+
         if not product_id:
             return Response({"detail": "product_id is required"}, status=status.HTTP_400_BAD_REQUEST)
-        
+
         try:
             product = Product.objects.get(id=product_id)
             if product in wishlist.products.all():
@@ -108,10 +123,10 @@ class WishlistView(APIView):
     def delete(self, request):
         wishlist = get_object_or_404(Wishlist, user=request.user)
         product_id = request.data.get('product_id')
-        
+
         if not product_id:
             return Response({"detail": "product_id is required"}, status=status.HTTP_400_BAD_REQUEST)
-        
+
         try:
             product = Product.objects.get(id=product_id)
             wishlist.products.remove(product)
@@ -119,6 +134,7 @@ class WishlistView(APIView):
             return Response(serializer.data)
         except Product.DoesNotExist:
             return Response({"detail": "Product not found"}, status=status.HTTP_404_NOT_FOUND)
+
 
 class CartView(APIView):
     permission_classes = [IsAuthenticated]
@@ -132,10 +148,10 @@ class CartView(APIView):
         cart, created = Cart.objects.get_or_create(user=request.user)
         product_id = request.data.get('product_id')
         quantity = int(request.data.get('quantity', 1))
-        
+
         if not product_id:
             return Response({"detail": "product_id is required"}, status=status.HTTP_400_BAD_REQUEST)
-        
+
         try:
             product = Product.objects.get(id=product_id)
 
@@ -144,13 +160,13 @@ class CartView(APIView):
                     {"detail": f"Only {product.stock} items available in stock"},
                     status=status.HTTP_400_BAD_REQUEST
                 )
-            
+
             cart_item, created = CartItem.objects.get_or_create(
                 cart=cart,
                 product=product,
                 defaults={'quantity': quantity}
             )
-            
+
             if not created:
                 new_quantity = cart_item.quantity + quantity
                 if product.stock < new_quantity:
@@ -160,7 +176,7 @@ class CartView(APIView):
                     )
                 cart_item.quantity = new_quantity
                 cart_item.save()
-            
+
             serializer = CartSerializer(cart)
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         except Product.DoesNotExist:
@@ -173,19 +189,19 @@ class CartItemView(APIView):
     def put(self, request, item_id):
         cart_item = get_object_or_404(CartItem, id=item_id, cart__user=request.user)
         quantity = int(request.data.get('quantity', 1))
-        
+
         if quantity <= 0:
             cart_item.delete()
             cart = Cart.objects.get(user=request.user)
             serializer = CartSerializer(cart)
             return Response(serializer.data)
-        
+
         if cart_item.product.stock < quantity:
             return Response(
                 {"detail": f"Only {cart_item.product.stock} items available in stock"},
                 status=status.HTTP_400_BAD_REQUEST
             )
-        
+
         cart_item.quantity = quantity
         cart_item.save()
         serializer = CartItemSerializer(cart_item)
@@ -198,6 +214,7 @@ class CartItemView(APIView):
         serializer = CartSerializer(cart)
         return Response(serializer.data)
 
+
 class OrderListView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -208,7 +225,7 @@ class OrderListView(APIView):
 
     def post(self, request):
         cart = get_object_or_404(Cart, user=request.user)
-        
+
         if cart.items.count() == 0:
             return Response(
                 {"detail": "Cart is empty"},
@@ -247,7 +264,7 @@ class OrderListView(APIView):
             cart_item.product.save()
 
         cart.items.all().delete()
-        
+
         serializer = OrderSerializer(order)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
@@ -260,3 +277,119 @@ class OrderDetailView(APIView):
         serializer = OrderSerializer(order)
         return Response(serializer.data)
 
+
+import re
+import os
+
+
+def _pdf_filename(product_name):
+    """Return a clean filename based on product name."""
+    safe = re.sub(r'[^\w\s-]', '', product_name).strip()
+    safe = re.sub(r'[\s]+', '_', safe)
+    return f'BeautyShop_{safe}.pdf'
+
+
+def _regenerate_pdf(product):
+    """Generate PDF, save path to DB, return the path."""
+    from .utils import generate_product_pdf
+    from django.conf import settings
+    pdf_path = generate_product_pdf(product)
+    Product.objects.filter(pk=product.pk).update(pdf_file=pdf_path)
+    product.refresh_from_db(fields=['pdf_file'])
+    return pdf_path
+
+
+class ProductPDFView(APIView):
+    permission_classes = [AllowAny]
+
+    def get(self, request, pk):
+        """Serve the PDF for a product, generating it if missing."""
+        from django.conf import settings
+        product = get_object_or_404(Product, pk=pk)
+
+        # Generate if missing or file no longer exists on disk
+        needs_regen = (
+                not product.pdf_file or
+                not os.path.exists(os.path.join(settings.MEDIA_ROOT, product.pdf_file.name))
+        )
+        if needs_regen:
+            _regenerate_pdf(product)
+
+        try:
+            file_path = os.path.join(settings.MEDIA_ROOT, product.pdf_file.name)
+            with open(file_path, 'rb') as f:
+                response = HttpResponse(f.read(), content_type='application/pdf')
+                response['Content-Disposition'] = f'inline; filename="{_pdf_filename(product.name)}"'
+                return response
+        except Exception as e:
+            raise Http404(f"Error serving PDF: {str(e)}")
+
+    def post(self, request, pk):
+        """Force-regenerate the PDF for a single product. Admin only."""
+        if not request.user.is_staff:
+            return Response({"detail": "Permission denied."}, status=status.HTTP_403_FORBIDDEN)
+        product = get_object_or_404(Product, pk=pk)
+        _regenerate_pdf(product)
+        return Response({"detail": f"PDF regenerated for '{product.name}'."}, status=status.HTTP_200_OK)
+
+
+class RegenerateAllPDFsView(APIView):
+    """
+    GET  /api/products/regenerate-pdfs/  — regenerate all PDFs (open in browser)
+    POST /api/products/regenerate-pdfs/  — same, for programmatic use
+    Both require admin/staff login.
+    """
+    permission_classes = [IsAdminUser]
+
+    def _run(self):
+        products = Product.objects.all()
+        success, failed = [], []
+        for product in products:
+            try:
+                _regenerate_pdf(product)
+                success.append({"id": product.id, "name": product.name})
+            except Exception as e:
+                failed.append({"id": product.id, "name": product.name, "error": str(e)})
+        return success, failed
+
+    def get(self, request):
+        success, failed = self._run()
+        from django.http import HttpResponse as HR
+        lines = [f"<h2>PDF Regeneration Complete</h2>"]
+        lines.append(f"<p><b>Regenerated: {len(success)}</b></p>")
+        lines.append("<ul>")
+        for p in success:
+            lines.append(f"<li>✅ [{p['id']}] {p['name']}</li>")
+        lines.append("</ul>")
+        if failed:
+            lines.append(f"<p><b>Failed: {len(failed)}</b></p><ul>")
+            for p in failed:
+                lines.append(f"<li>❌ [{p['id']}] {p['name']} — {p['error']}</li>")
+            lines.append("</ul>")
+        return HR("<br>".join(lines))
+
+    def post(self, request):
+        success, failed = self._run()
+        return Response({
+            "regenerated": len(success),
+            "failed": len(failed),
+            "failed_details": failed,
+        }, status=status.HTTP_200_OK)
+
+class ProductSearchView(APIView):
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+
+        query = request.GET.get("q", "")
+
+        if not query:
+            return Response([])
+
+        products = Product.objects.all()
+
+        results = search_products_tfidf(query, products)
+
+        serializer = ProductSerializer(results, many=True)
+
+        return Response(serializer.data)

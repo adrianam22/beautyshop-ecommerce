@@ -349,7 +349,6 @@ nav .menu a:hover {
   border-color: #d4af37;
   outline: none;
   box-shadow: 0 0 0 4px rgba(212, 175, 55, 0.1);
-  background: #fffef9;
 }
 
 .form-input-modern:disabled {
@@ -533,7 +532,8 @@ nav .menu a:hover {
 }
 
 .btn-gold {
-  background-color: #d4a017;
+  /*background-color: #d4a017;*/
+  background: linear-gradient(135deg, #d4af37 0%, #f4c430 100%);
   border: none;
   padding: 16px 40px;
   border-radius: 8px;
@@ -542,10 +542,10 @@ nav .menu a:hover {
   cursor: pointer;
   transition: 0.25s ease;
   font-size: 1.1rem;
+
 }
 
 .btn-gold:hover {
-  background-color: #f4c430;
   transform: translateY(-3px);
   box-shadow: 0 10px 25px rgba(212, 175, 55, 0.3);
 }
@@ -2112,14 +2112,18 @@ footer p {
 
 /* Products Main */
 .products-main {
-  min-height: 500px;
+  min-height: 50px;
+}
+.products-search-bar{
+  margin-bottom: 50px;
+
 }
 
 .filter-info {
   background: white;
   padding: 15px 20px;
   border-radius: 12px;
-  margin-bottom: 25px;
+  margin-bottom: 250px;
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -2226,6 +2230,9 @@ footer p {
 .quick-view-btn:hover {
   background: #d4af37;
   transform: scale(1.05);
+}
+.quick-view-btn:active {
+ background: #ff6b9d;
 }
 
 .product-info {
@@ -2719,6 +2726,52 @@ footer p {
   padding: 20px;
 }
 
+.product-buttons {
+  display: flex;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.btn-add-cart {
+  flex: 1;
+  background: linear-gradient(135deg, #0a1a33 0%, #14284d 100%);
+  color: white;
+  border: none;
+  padding: 10px 15px;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: 0.3s;
+  font-size: 14px;
+}
+
+.btn-add-cart:hover {
+  background: linear-gradient(135deg, #14284d 0%, #0a1a33 100%);
+  transform: scale(1.02);
+}
+
+.btn-view-details {
+  flex: 1;
+  background: linear-gradient(135deg, #d4af37 0%, #f4d03f 100%);
+  color: var(--navy);
+  border: none;
+  padding: 10px 15px;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: 0.3s;
+  font-size: 14px;
+  text-align: center;
+  display: block;
+  text-decoration: none;
+}
+
+.btn-view-details:hover {
+  background: linear-gradient(135deg, #f4d03f 0%, #d4af37 100%);
+  transform: scale(1.02);
+  color: var(--navy);
+}
+
 .product-category-small {
   display: inline-block;
   background: #f8f9fa;
@@ -3027,7 +3080,31 @@ footer p {
   display: flex;
   flex-direction: column;
   gap: 10px;
-  align-items: center;
+}
+
+.view-details-btn {
+
+  width: 100%;
+  background: linear-gradient(135deg, #d4af37 0%, #f4c430 100%);
+  color: white;
+  border: 2px solid var(--navy);
+  padding: 12px 20px;
+  border-radius: 10px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: 0.3s;
+  font-size: 15px;
+  text-align: center;
+  display: block;
+  text-decoration: none;
+
+}
+
+.view-details-btn:hover {
+  background: linear-gradient(135deg, #d4af37 0%, #f4d03f 100%);
+  transform: scale(1.05);
+  color: white;
+  border-color: transparent;
 }
 
 .wishlist-btn {

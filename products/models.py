@@ -1,5 +1,9 @@
 from django.db import models
 from users.models import User
+from django.db.models.signals import post_save
+from django.dispatch import receiver
+from .utils import generate_product_pdf
+
 
 class Category(models.Model):
     name = models.CharField(max_length=100, unique=True)
@@ -18,6 +22,7 @@ class Product(models.Model):
     delivery_method = models.CharField(max_length=200, blank=True)
     category = models.ForeignKey(Category, on_delete=models.SET_NULL, null=True, related_name='products')
     image = models.ImageField(upload_to='product_images/', blank=True, null=True)
+    pdf_file = models.FileField(upload_to='product_pdfs/', blank=True, null=True)
 
     def __str__(self):
         return self.name
@@ -69,7 +74,7 @@ class Order(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='orders')
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
     total = models.DecimalField(max_digits=10, decimal_places=2)
-    
+
     # Shipping information
     shipping_name = models.CharField(max_length=200)
     shipping_email = models.EmailField()
@@ -78,7 +83,7 @@ class Order(models.Model):
     shipping_city = models.CharField(max_length=100)
     shipping_postal_code = models.CharField(max_length=20)
     shipping_country = models.CharField(max_length=100, default='Romania')
-    
+
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -97,3 +102,14 @@ class OrderItem(models.Model):
 
     def get_subtotal(self):
         return self.price * self.quantity
+
+
+@receiver(post_save, sender=Product)
+def create_or_update_product_pdf(sender, instance, created, **kwargs):
+    # Avoid recursion: skip if this save was triggered only to update pdf_file
+    if kwargs.get('update_fields') and set(kwargs['update_fields']) == {'pdf_file'}:
+        return
+
+    pdf_path = generate_product_pdf(instance)
+    # Use update_fields to prevent re-triggering the signal
+    Product.objects.filter(pk=instance.pk).update(pdf_file=pdf_path)

@@ -2,10 +2,12 @@ import React, { useEffect, useState } from "react";
 import "../styles.css";
 
 export default function ProductsPage() {
+
   const [products, setProducts] = useState<any[]>([]);
   const [categories, setCategories] = useState<any[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<number | null>(null);
   const [wishlistProductIds, setWishlistProductIds] = useState<number[]>([]);
+  const [search, setSearch] = useState("");
 
   function loadCategories() {
     fetch("http://127.0.0.1:8000/api/products/categories/")
@@ -35,6 +37,21 @@ export default function ProductsPage() {
       });
   }
 
+  function handleSearch() {
+
+    if (!search.trim()) {
+      loadProducts();
+      return;
+    }
+
+    fetch(`http://127.0.0.1:8000/api/products/search/?q=${search}`)
+      .then((r) => r.json())
+      .then((data) => {
+        if (Array.isArray(data)) setProducts(data);
+        else setProducts([]);
+      });
+  }
+
   useEffect(() => {
     loadCategories();
   }, []);
@@ -43,6 +60,22 @@ export default function ProductsPage() {
     loadProducts();
     loadWishlist();
   }, [selectedCategory]);
+
+  useEffect(() => {
+
+  if (!search.trim()) {
+    loadProducts()
+    return
+  }
+
+  const delayDebounce = setTimeout(() => {
+    handleSearch()
+  }, 400)
+
+  return () => clearTimeout(delayDebounce)
+
+}, [search])
+
 
   function loadWishlist() {
     const token = localStorage.getItem("access");
@@ -61,6 +94,7 @@ export default function ProductsPage() {
 
   function addToWishlist(productId: number) {
     const token = localStorage.getItem("access");
+
     if (!token) {
       alert("Please login to add products to wishlist");
       return;
@@ -96,13 +130,16 @@ export default function ProductsPage() {
       body: JSON.stringify({ product_id: productId }),
     })
       .then(() => {
-        setWishlistProductIds(wishlistProductIds.filter((id) => id !== productId));
+        setWishlistProductIds(
+          wishlistProductIds.filter((id) => id !== productId)
+        );
       })
       .catch(() => {});
   }
 
   function addToCart(productId: number) {
     const token = localStorage.getItem("access");
+
     if (!token) {
       alert("Please login to add items to cart");
       return;
@@ -129,10 +166,13 @@ export default function ProductsPage() {
     <div className="products-page-container">
       <div className="products-page-header">
         <h1 className="products-page-title">🛍️ Our Products</h1>
-        <p className="products-page-subtitle">Discover our amazing collection</p>
+        <p className="products-page-subtitle">
+          Discover our amazing collection
+        </p>
       </div>
 
       <div className="products-layout">
+
         {/* Sidebar */}
         <aside className="products-sidebar">
           <div className="sidebar-header">
@@ -141,12 +181,13 @@ export default function ProductsPage() {
           </div>
 
           <button
-            className={`category-filter-btn ${selectedCategory === null ? "active" : ""}`}
+            className={`category-filter-btn ${
+              selectedCategory === null ? "active" : ""
+            }`}
             onClick={() => setSelectedCategory(null)}
           >
             <span className="btn-icon">📦</span>
             All Products
-            <span className="count-badge">{products.length}</span>
           </button>
 
           <div className="category-divider"></div>
@@ -154,7 +195,9 @@ export default function ProductsPage() {
           {categories.map((cat) => (
             <button
               key={cat.id}
-              className={`category-filter-btn ${selectedCategory === cat.id ? "active" : ""}`}
+              className={`category-filter-btn ${
+                selectedCategory === cat.id ? "active" : ""
+              }`}
               onClick={() => setSelectedCategory(cat.id)}
             >
               <span className="btn-icon">🏷️</span>
@@ -162,66 +205,97 @@ export default function ProductsPage() {
             </button>
           ))}
         </aside>
+
+        {/* Main */}
         <main className="products-main">
-          {selectedCategory && (
-            <div className="filter-info">
-              <span>Showing products in: <strong>{categories.find(c => c.id === selectedCategory)?.name}</strong></span>
-              <button className="clear-filter" onClick={() => setSelectedCategory(null)}>
-                ✕ Clear filter
-              </button>
-            </div>
-          )}
+
+          {/* Search bar */}
+          <div className="products-search-bar">
+            <input
+              type="text"
+              placeholder="🔍 Search products (TF-IDF)..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="form-input-modern"
+            />
+          </div>
 
           {products.length === 0 ? (
             <div className="empty-products-state">
               <div className="empty-icon">📦</div>
               <h3>No products found</h3>
-              <p>Try selecting a different category or check back later</p>
+              <p>Try another search or category</p>
             </div>
           ) : (
             <div className="modern-products-grid">
+
               {products.map((p) => (
                 <div className="modern-product-card" key={p.id}>
+
                   <div className="product-image-wrapper">
                     <img
-                      src={p.image.startsWith("http") ? p.image : `http://127.0.0.1:8000/${p.image.replace(/^\/+/, "")}`}
+                      src={
+                        p.image.startsWith("http")
+                          ? p.image
+                          : `http://127.0.0.1:8000/${p.image.replace(
+                              /^\/+/,
+                              ""
+                            )}`
+                      }
                       alt={p.name}
                       className="modern-product-image"
                     />
+
                     <div className="product-overlay">
+
                       <div className="product-overlay-buttons">
+
                         <button
                           className="quick-view-btn"
                           onClick={() => addToCart(p.id)}
                         >
                           🛒 Add to Cart
                         </button>
+
+                        <a
+                          href={`http://127.0.0.1:8000/api/products/${p.id}/pdf/`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="quick-view-btn"
+                        >
+                          📄 View Details
+                        </a>
+
                         {wishlistProductIds.includes(p.id) ? (
                           <button
-                            className="wishlist-btn active"
+                            className="quick-view-btn active"
                             onClick={() => removeFromWishlist(p.id)}
-                            title="Remove from wishlist"
                           >
                             ❤️
                           </button>
                         ) : (
                           <button
-                            className="wishlist-btn"
+                            className="quick-view-btn"
                             onClick={() => addToWishlist(p.id)}
-                            title="Add to wishlist"
                           >
-                            🤍
+                            🤍 Add to wishlist
                           </button>
                         )}
+
                       </div>
                     </div>
                   </div>
 
                   <div className="product-info">
-                    <span className="product-category-tag">{p.category_name}</span>
+                    <span className="product-category-tag">
+                      {p.category_name}
+                    </span>
+
                     <h3 className="product-name">{p.name}</h3>
+
                     <div className="product-footer">
                       <span className="product-price">{p.price} RON</span>
+
                       <button
                         className="add-to-cart-btn"
                         onClick={() => addToCart(p.id)}
@@ -230,8 +304,10 @@ export default function ProductsPage() {
                       </button>
                     </div>
                   </div>
+
                 </div>
               ))}
+
             </div>
           )}
         </main>

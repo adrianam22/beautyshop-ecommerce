@@ -91,22 +91,56 @@ export default function DashboardProducts() {
   }
 
   function startEdit(product: any) {
-    setEditForm({ ...product });
+    // Normalize product data for editing (we only care about editable fields)
+    setEditForm({
+      id: product.id,
+      name: product.name || "",
+      description: product.description || "",
+      specifications: product.specifications || "",
+      price: product.price,
+      stock: product.stock,
+      supplier: product.supplier || "",
+      delivery_method: product.delivery_method || "",
+      category: product.category || "",
+    });
     setEditing(true);
   }
 
   function saveEdit() {
-    const formData = new FormData();
-
-    for (const key in editForm) {
-      formData.append(key, editForm[key]);
-    }
+    // Send a JSON PUT request with only the editable fields
+    const payload = {
+      name: editForm.name,
+      description: editForm.description || "",
+      specifications: editForm.specifications || "",
+      price: editForm.price,
+      stock: editForm.stock,
+      supplier: editForm.supplier || "",
+      delivery_method: editForm.delivery_method || "",
+      category: editForm.category || null,
+    };
 
     fetch(`http://127.0.0.1:8000/api/products/${editForm.id}/`, {
       method: "PUT",
-      headers: { Authorization: "Bearer " + token },
-      body: formData,
-    }).then(() => {
+      headers: {
+        Authorization: "Bearer " + token,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payload),
+    }).then(async (response) => {
+      if (!response.ok) {
+        let msg = "Failed to save product changes.";
+        try {
+          const data = await response.json();
+          msg =
+            data.detail ||
+            JSON.stringify(data) ||
+            "Failed to save product changes.";
+        } catch (e) {
+          // ignore JSON parse error
+        }
+        alert(msg);
+        return;
+      }
       setEditing(false);
       loadProducts();
     });
@@ -332,7 +366,7 @@ export default function DashboardProducts() {
           </table>
         </div>
       </div>
-      {editing && (
+      {editing && editForm && (
         <div className="modal-overlay">
           <div className="modern-modal">
             <div className="modal-header">
@@ -345,6 +379,7 @@ export default function DashboardProducts() {
               </button>
             </div>
             <div className="modal-body">
+              {/* Basic info */}
               <div className="form-group">
                 <label>Product Name</label>
                 <input
@@ -356,6 +391,32 @@ export default function DashboardProducts() {
                 />
               </div>
 
+              <div className="form-group">
+                <label>Description</label>
+                <textarea
+                  rows={3}
+                  value={editForm.description || ""}
+                  onChange={(e) =>
+                    setEditForm({ ...editForm, description: e.target.value })
+                  }
+                />
+              </div>
+
+              <div className="form-group">
+                <label>Specifications</label>
+                <textarea
+                  rows={3}
+                  value={editForm.specifications || ""}
+                  onChange={(e) =>
+                    setEditForm({
+                      ...editForm,
+                      specifications: e.target.value,
+                    })
+                  }
+                />
+              </div>
+
+              {/* Pricing & stock */}
               <div className="form-row">
                 <div className="form-group">
                   <label>Price (RON)</label>
@@ -379,6 +440,55 @@ export default function DashboardProducts() {
                     }
                   />
                 </div>
+              </div>
+
+              {/* Supplier & delivery */}
+              <div className="form-row">
+                <div className="form-group">
+                  <label>Supplier</label>
+                  <input
+                    type="text"
+                    value={editForm.supplier || ""}
+                    onChange={(e) =>
+                      setEditForm({ ...editForm, supplier: e.target.value })
+                    }
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label>Delivery Method</label>
+                  <input
+                    type="text"
+                    value={editForm.delivery_method || ""}
+                    onChange={(e) =>
+                      setEditForm({
+                        ...editForm,
+                        delivery_method: e.target.value,
+                      })
+                    }
+                  />
+                </div>
+              </div>
+
+              {/* Category */}
+              <div className="form-group">
+                <label>Category</label>
+                <select
+                  value={editForm.category || ""}
+                  onChange={(e) =>
+                    setEditForm({
+                      ...editForm,
+                      category: e.target.value,
+                    })
+                  }
+                >
+                  <option value="">Select category</option>
+                  {categories.map((cat) => (
+                    <option key={cat.id} value={cat.id}>
+                      {cat.name}
+                    </option>
+                  ))}
+                </select>
               </div>
             </div>
             <div className="modal-footer">

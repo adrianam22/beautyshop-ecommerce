@@ -1,7 +1,9 @@
 from django.urls import path
+from .views import ProductSearchView
 from .views import (
     CategoryListCreate, CategoryDetail, ProductListCreateView, ProductDetailView,
-    WishlistView, CartView, CartItemView, OrderListView, OrderDetailView
+    WishlistView, CartView, CartItemView, OrderListView, OrderDetailView,
+    ProductPDFView, RegenerateAllPDFsView
 )
 
 urlpatterns = [
@@ -10,6 +12,11 @@ urlpatterns = [
 
     path("", ProductListCreateView.as_view()),
     path("<int:pk>/", ProductDetailView.as_view()),
+    path("<int:pk>/pdf/", ProductPDFView.as_view()),
+
+    # Regenerate PDFs
+    path("regenerate-pdfs/", RegenerateAllPDFsView.as_view()),  # POST → regenerate all
+    # POST to /<pk>/pdf/ → regenerate single product (admin only)
 
     # Wishlist endpoints
     path("wishlist/", WishlistView.as_view()),
@@ -21,4 +28,5 @@ urlpatterns = [
     # Order endpoints
     path("orders/", OrderListView.as_view()),
     path("orders/<int:order_id>/", OrderDetailView.as_view()),
+    path("search/", ProductSearchView.as_view()),
 ]

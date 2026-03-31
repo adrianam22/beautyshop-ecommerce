@@ -113,7 +113,16 @@ export default function HomePage() {
                 <span className="product-category-small">{product.category_name}</span>
                 <h3 className="product-title-home">{product.name}</h3>
                 <div className="product-price-home">{product.price} RON</div>
-                <button className="btn-add-cart">Add to Cart</button>
+                <div className="product-buttons">
+                  <button className="btn-add-cart">Add to Cart</button>
+                  <a
+                    href={`http://127.0.0.1:8000/api/products/${product.id}/pdf/`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="btn-view-details"
+                  > View Details
+                  </a>
+                </div>
               </div>
             </div>
           ))}
