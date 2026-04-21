@@ -1,5 +1,5 @@
 from django.urls import path
-from .views import ProductSearchView
+from .views import ProductAutocompleteView, ProductRecommendationsView, ProductSearchView
 from .views import (
     CategoryListCreate, CategoryDetail, ProductListCreateView, ProductDetailView,
     WishlistView, CartView, CartItemView, OrderListView, OrderDetailView,
@@ -13,6 +13,7 @@ urlpatterns = [
     path("", ProductListCreateView.as_view()),
     path("<int:pk>/", ProductDetailView.as_view()),
     path("<int:pk>/pdf/", ProductPDFView.as_view()),
+    path("<int:pk>/recommendations/", ProductRecommendationsView.as_view()),
 
     # Regenerate PDFs
     path("regenerate-pdfs/", RegenerateAllPDFsView.as_view()),  # POST → regenerate all
@@ -29,4 +30,5 @@ urlpatterns = [
     path("orders/", OrderListView.as_view()),
     path("orders/<int:order_id>/", OrderDetailView.as_view()),
     path("search/", ProductSearchView.as_view()),
+    path("autocomplete/", ProductAutocompleteView.as_view()),
 ]

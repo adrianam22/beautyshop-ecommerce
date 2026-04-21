@@ -1,29 +1,71 @@
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
+import { Link, useSearchParams } from "react-router-dom";
 import "../styles.css";
 
-export default function ProductsPage() {
+type Product = {
+  id: number;
+  name: string;
+  description: string;
+  specifications: string;
+  price: string;
+  stock: number;
+  supplier: string;
+  delivery_method: string;
+  category: number | null;
+  category_name: string;
+  image: string | null;
+};
 
-  const [products, setProducts] = useState<any[]>([]);
-  const [categories, setCategories] = useState<any[]>([]);
-  const [selectedCategory, setSelectedCategory] = useState<number | null>(null);
-  const [wishlistProductIds, setWishlistProductIds] = useState<number[]>([]);
-  const [search, setSearch] = useState("");
+type Category = {
+  id: number;
+  name: string;
+};
 
-  function loadCategories() {
-    fetch("http://127.0.0.1:8000/api/products/categories/")
-      .then((r) => r.json())
-      .then((data) => {
-        if (Array.isArray(data)) setCategories(data);
-        else setCategories([]);
-      });
+type AutocompleteSuggestion = {
+  id: number;
+  name: string;
+  category_name: string;
+  score: number;
+};
+
+const API_BASE = "http://127.0.0.1:8000/api/products";
+
+function getImageUrl(image: string | null) {
+  if (!image) {
+    return "https://via.placeholder.com/600x600?text=BeautyShop";
   }
 
-  function loadProducts() {
-    const token = localStorage.getItem("access");
+  return image.startsWith("http")
+    ? image
+    : `http://127.0.0.1:8000/${image.replace(/^\/+/, "")}`;
+}
 
-    const url = selectedCategory
-      ? `http://127.0.0.1:8000/api/products/?category=${selectedCategory}`
-      : "http://127.0.0.1:8000/api/products/";
+export default function ProductsPage() {
+  const [products, setProducts] = useState<Product[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [wishlistProductIds, setWishlistProductIds] = useState<number[]>([]);
+  const [search, setSearch] = useState("");
+  const [autocomplete, setAutocomplete] = useState<AutocompleteSuggestion[]>([]);
+  const [showAutocomplete, setShowAutocomplete] = useState(false);
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  const selectedCategory = searchParams.get("category")
+    ? Number(searchParams.get("category"))
+    : null;
+
+  function loadCategories() {
+    fetch(`${API_BASE}/categories/`)
+      .then((r) => r.json())
+      .then((data) => setCategories(Array.isArray(data) ? data : []))
+      .catch(() => setCategories([]));
+  }
+
+  function loadProducts(categoryId?: number | null) {
+    const token = localStorage.getItem("access");
+    const activeCategory = categoryId === undefined ? selectedCategory : categoryId;
+    const url = activeCategory
+      ? `${API_BASE}/?category=${activeCategory}`
+      : `${API_BASE}/`;
 
     fetch(url, {
       headers: {
@@ -32,64 +74,64 @@ export default function ProductsPage() {
     })
       .then((r) => r.json())
       .then((data) => {
-        if (Array.isArray(data)) setProducts(data);
-        else setProducts([]);
-      });
+        setProducts(Array.isArray(data) ? data : []);
+      })
+      .catch(() => setProducts([]));
   }
-
-  function handleSearch() {
-
-    if (!search.trim()) {
-      loadProducts();
-      return;
-    }
-
-    fetch(`http://127.0.0.1:8000/api/products/search/?q=${search}`)
-      .then((r) => r.json())
-      .then((data) => {
-        if (Array.isArray(data)) setProducts(data);
-        else setProducts([]);
-      });
-  }
-
-  useEffect(() => {
-    loadCategories();
-  }, []);
-
-  useEffect(() => {
-    loadProducts();
-    loadWishlist();
-  }, [selectedCategory]);
-
-  useEffect(() => {
-
-  if (!search.trim()) {
-    loadProducts()
-    return
-  }
-
-  const delayDebounce = setTimeout(() => {
-    handleSearch()
-  }, 400)
-
-  return () => clearTimeout(delayDebounce)
-
-}, [search])
-
 
   function loadWishlist() {
     const token = localStorage.getItem("access");
     if (!token) return;
 
-    fetch("http://127.0.0.1:8000/api/products/wishlist/", {
+    fetch(`${API_BASE}/wishlist/`, {
       headers: { Authorization: "Bearer " + token },
     })
       .then((r) => r.json())
       .then((data) => {
-        const ids = data.products?.map((p: any) => p.id) || [];
+        const ids = data.products?.map((product: Product) => product.id) || [];
         setWishlistProductIds(ids);
       })
       .catch(() => {});
+  }
+
+  function handleSearch() {
+    const query = search.trim();
+
+    if (!query) {
+      loadProducts();
+      setAutocomplete([]);
+      return;
+    }
+
+    fetch(`${API_BASE}/search/?q=${encodeURIComponent(query)}`)
+      .then((r) => r.json())
+      .then((data) => {
+        setProducts(Array.isArray(data) ? data : []);
+      })
+      .catch(() => setProducts([]));
+  }
+
+  function loadAutocomplete(query: string) {
+    const trimmedQuery = query.trim();
+
+    if (!trimmedQuery) {
+      setAutocomplete([]);
+      return;
+    }
+
+    fetch(`${API_BASE}/autocomplete/?q=${encodeURIComponent(trimmedQuery)}`)
+      .then((r) => r.json())
+      .then((data) => setAutocomplete(Array.isArray(data) ? data : []))
+      .catch(() => setAutocomplete([]));
+  }
+
+  function selectCategory(categoryId: number | null) {
+    if (categoryId === null) {
+      setSearchParams({});
+      return;
+    }
+
+    setSearchParams({ category: String(categoryId) });
   }
 
   function addToWishlist(productId: number) {
@@ -100,7 +142,7 @@ export default function ProductsPage() {
       return;
     }
 
-    fetch("http://127.0.0.1:8000/api/products/wishlist/", {
+    fetch(`${API_BASE}/wishlist/`, {
       method: "POST",
       headers: {
         Authorization: "Bearer " + token,
@@ -110,10 +152,10 @@ export default function ProductsPage() {
     })
       .then((r) => r.json())
       .then(() => {
-        setWishlistProductIds([...wishlistProductIds, productId]);
+        setWishlistProductIds((current) => [...new Set([...current, productId])]);
       })
-      .catch((err) => {
-        alert("Error: " + (err.detail || "Unknown error"));
+      .catch(() => {
+        alert("Unable to update wishlist");
       });
   }
 
@@ -121,7 +163,7 @@ export default function ProductsPage() {
     const token = localStorage.getItem("access");
     if (!token) return;
 
-    fetch("http://127.0.0.1:8000/api/products/wishlist/", {
+    fetch(`${API_BASE}/wishlist/`, {
       method: "DELETE",
       headers: {
         Authorization: "Bearer " + token,
@@ -130,9 +172,7 @@ export default function ProductsPage() {
       body: JSON.stringify({ product_id: productId }),
     })
       .then(() => {
-        setWishlistProductIds(
-          wishlistProductIds.filter((id) => id !== productId)
-        );
+        setWishlistProductIds((current) => current.filter((id) => id !== productId));
       })
       .catch(() => {});
   }
@@ -145,7 +185,7 @@ export default function ProductsPage() {
       return;
     }
 
-    fetch("http://127.0.0.1:8000/api/products/cart/", {
+    fetch(`${API_BASE}/cart/`, {
       method: "POST",
       headers: {
         Authorization: "Bearer " + token,
@@ -157,157 +197,157 @@ export default function ProductsPage() {
       .then(() => {
         alert("Product added to cart!");
       })
-      .catch((err) => {
-        alert("Error: " + (err.detail || "Unknown error"));
+      .catch(() => {
+        alert("Unable to add the product to cart");
       });
   }
+
+  useEffect(() => {
+    loadCategories();
+    loadWishlist();
+  }, []);
+
+  useEffect(() => {
+    if (!search.trim()) {
+      loadProducts();
+    }
+  }, [selectedCategory]);
+
+  useEffect(() => {
+    const debounceId = window.setTimeout(() => {
+      loadAutocomplete(search);
+
+      if (search.trim()) {
+        handleSearch();
+        return;
+      }
+
+      loadProducts();
+    }, 300);
+
+    return () => window.clearTimeout(debounceId);
+  }, [search]);
 
   return (
     <div className="products-page-container">
       <div className="products-page-header">
-        <h1 className="products-page-title">🛍️ Our Products</h1>
-        <p className="products-page-subtitle">
-          Discover our amazing collection
-        </p>
+        <h1 className="products-page-title">Our Products</h1>
+        <p className="products-page-subtitle">Find the products you want faster.</p>
       </div>
 
       <div className="products-layout">
-
-        {/* Sidebar */}
         <aside className="products-sidebar">
           <div className="sidebar-header">
-            <h3>🏷️ Categories</h3>
+            <h3>Categories</h3>
             <span className="category-badge-count">{categories.length}</span>
           </div>
 
           <button
-            className={`category-filter-btn ${
-              selectedCategory === null ? "active" : ""
-            }`}
-            onClick={() => setSelectedCategory(null)}
+            className={`category-filter-btn ${selectedCategory === null ? "active" : ""}`}
+            onClick={() => selectCategory(null)}
           >
-            <span className="btn-icon">📦</span>
             All Products
           </button>
 
           <div className="category-divider"></div>
 
-          {categories.map((cat) => (
+          {categories.map((category) => (
             <button
-              key={cat.id}
-              className={`category-filter-btn ${
-                selectedCategory === cat.id ? "active" : ""
-              }`}
-              onClick={() => setSelectedCategory(cat.id)}
+              key={category.id}
+              className={`category-filter-btn ${selectedCategory === category.id ? "active" : ""}`}
+              onClick={() => selectCategory(category.id)}
             >
-              <span className="btn-icon">🏷️</span>
-              {cat.name}
+              {category.name}
             </button>
           ))}
         </aside>
 
-        {/* Main */}
         <main className="products-main">
+          <div className="products-search-shell">
+            <div className="products-search-bar predictive-search products-search-bar-wide">
+              <input
+                type="text"
+                placeholder="Search products..."
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+                onFocus={() => setShowAutocomplete(true)}
+                onBlur={() => {
+                  window.setTimeout(() => setShowAutocomplete(false), 150);
+                }}
+                className="form-input-modern"
+              />
 
-          {/* Search bar */}
-          <div className="products-search-bar">
-            <input
-              type="text"
-              placeholder="🔍 Search products (TF-IDF)..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="form-input-modern"
-            />
+              {showAutocomplete && autocomplete.length > 0 && (
+                <div className="autocomplete-dropdown">
+                  {autocomplete.map((suggestion) => (
+                    <Link
+                      key={suggestion.id}
+                      to={`/products/${suggestion.id}`}
+                      className="autocomplete-item"
+                    >
+                      <span className="autocomplete-name">{suggestion.name}</span>
+                      <span className="autocomplete-meta">{suggestion.category_name || "Product"}</span>
+                    </Link>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
 
           {products.length === 0 ? (
             <div className="empty-products-state">
-              <div className="empty-icon">📦</div>
+              <div className="empty-icon">No results</div>
               <h3>No products found</h3>
-              <p>Try another search or category</p>
+              <p>Try another title or a different category.</p>
             </div>
           ) : (
             <div className="modern-products-grid">
-
-              {products.map((p) => (
-                <div className="modern-product-card" key={p.id}>
-
+              {products.map((product) => (
+                <div className="modern-product-card" key={product.id}>
                   <div className="product-image-wrapper">
                     <img
-                      src={
-                        p.image.startsWith("http")
-                          ? p.image
-                          : `http://127.0.0.1:8000/${p.image.replace(
-                              /^\/+/,
-                              ""
-                            )}`
-                      }
-                      alt={p.name}
+                      src={getImageUrl(product.image)}
+                      alt={product.name}
                       className="modern-product-image"
                     />
 
                     <div className="product-overlay">
-
                       <div className="product-overlay-buttons">
-
-                        <button
-                          className="quick-view-btn"
-                          onClick={() => addToCart(p.id)}
-                        >
-                          🛒 Add to Cart
+                        <button className="quick-view-btn" onClick={() => addToCart(product.id)}>
+                          Add to Cart
                         </button>
-
-                        <a
-                          href={`http://127.0.0.1:8000/api/products/${p.id}/pdf/`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="quick-view-btn"
-                        >
-                          📄 View Details
-                        </a>
-
-                        {wishlistProductIds.includes(p.id) ? (
+                        <Link to={`/products/${product.id}`} className="quick-view-btn">
+                          View Product
+                        </Link>
+                        {wishlistProductIds.includes(product.id) ? (
                           <button
                             className="quick-view-btn active"
-                            onClick={() => removeFromWishlist(p.id)}
+                            onClick={() => removeFromWishlist(product.id)}
                           >
-                            ❤️
+                            Remove Wishlist
                           </button>
                         ) : (
-                          <button
-                            className="quick-view-btn"
-                            onClick={() => addToWishlist(p.id)}
-                          >
-                            🤍 Add to wishlist
+                          <button className="quick-view-btn" onClick={() => addToWishlist(product.id)}>
+                            Add to Wishlist
                           </button>
                         )}
-
                       </div>
                     </div>
                   </div>
 
                   <div className="product-info">
-                    <span className="product-category-tag">
-                      {p.category_name}
-                    </span>
-
-                    <h3 className="product-name">{p.name}</h3>
+                    <span className="product-category-tag">{product.category_name}</span>
+                    <h3 className="product-name">{product.name}</h3>
 
                     <div className="product-footer">
-                      <span className="product-price">{p.price} RON</span>
-
-                      <button
-                        className="add-to-cart-btn"
-                        onClick={() => addToCart(p.id)}
-                      >
-                        🛒 Add
+                      <span className="product-price">{product.price} RON</span>
+                      <button className="add-to-cart-btn" onClick={() => addToCart(product.id)}>
+                        Add
                       </button>
                     </div>
                   </div>
-
                 </div>
               ))}
-
             </div>
           )}
         </main>

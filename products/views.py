@@ -11,7 +11,15 @@ from .serializers import (
     CategorySerializer, ProductSerializer, WishlistSerializer,
     CartSerializer, CartItemSerializer, OrderSerializer, OrderItemSerializer
 )
-from .utils import search_products_tfidf
+from .utils import autocomplete_products, recommend_similar_products, search_products_tfidf
+
+
+def _safe_limit(raw_value, default, minimum, maximum):
+    try:
+        value = int(raw_value)
+    except (TypeError, ValueError):
+        value = default
+    return min(max(value, minimum), maximum)
 
 
 class CategoryListCreate(APIView):
@@ -392,4 +400,31 @@ class ProductSearchView(APIView):
 
         serializer = ProductSerializer(results, many=True)
 
+        return Response(serializer.data)
+
+
+class ProductAutocompleteView(APIView):
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        query = request.GET.get("q", "").strip()
+
+        if not query:
+            return Response([])
+
+        limit = _safe_limit(request.GET.get("limit"), default=8, minimum=1, maximum=10)
+        products = Product.objects.select_related("category").all()
+        suggestions = autocomplete_products(query, products, limit=limit)
+        return Response(suggestions)
+
+
+class ProductRecommendationsView(APIView):
+    permission_classes = [AllowAny]
+
+    def get(self, request, pk):
+        product = get_object_or_404(Product.objects.select_related("category"), pk=pk)
+        limit = _safe_limit(request.GET.get("limit"), default=4, minimum=1, maximum=8)
+        products = Product.objects.select_related("category").all()
+        recommendations = recommend_similar_products(product, products, limit=limit)
+        serializer = ProductSerializer(recommendations, many=True)
         return Response(serializer.data)

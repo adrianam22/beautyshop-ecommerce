@@ -1,4 +1,3 @@
-import React from "react";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Navbar from "./components/Navbar";
 import Layout from "./components/Layout";
@@ -14,6 +13,7 @@ import Wishlist from "./pages/Wishlist";
 import Cart from "./pages/Cart";
 import Checkout from "./pages/Checkout";
 import Orders from "./pages/Orders";
+import ProductDetail from "./pages/ProductDetail";
 
 export default function App() {
   return (
@@ -25,6 +25,7 @@ export default function App() {
           <Route index element={<Home />} />
           <Route path="/auth" element={<Auth />} />
           <Route path="/products" element={<Products />} />
+          <Route path="/products/:productId" element={<ProductDetail />} />
           <Route path="/categories" element={<Categories />} />
           <Route path="/wishlist" element={<Wishlist />} />
           <Route path="/cart" element={<Cart />} />

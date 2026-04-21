@@ -1,20 +1,9 @@
-import React, { useEffect, useState, useContext } from "react";
+import { useContext } from "react";
 import { Link } from "react-router-dom";
 import { UserContext } from "../context/UserContext";
 
 export default function Navbar() {
   const { user, setUser } = useContext(UserContext);
-  const [categories, setCategories] = useState<any[]>([]);
-
-  useEffect(() => {
-    fetch("http://127.0.0.1:8000/api/products/categories/")
-      .then((res) => res.json())
-      .then((data) => {
-        if (Array.isArray(data)) setCategories(data);
-        else setCategories([]);
-      })
-      .catch(() => setCategories([]));
-  }, []);
 
   return (
     <nav className="navbar">

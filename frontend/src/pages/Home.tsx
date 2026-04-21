@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import "../styles.css";
 
@@ -115,13 +115,9 @@ export default function HomePage() {
                 <div className="product-price-home">{product.price} RON</div>
                 <div className="product-buttons">
                   <button className="btn-add-cart">Add to Cart</button>
-                  <a
-                    href={`http://127.0.0.1:8000/api/products/${product.id}/pdf/`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="btn-view-details"
-                  > View Details
-                  </a>
+                  <Link to={`/products/${product.id}`} className="btn-view-details">
+                    View Details
+                  </Link>
                 </div>
               </div>
             </div>

@@ -1,4 +1,5 @@
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import "../styles.css";
 
 export default function Wishlist() {
@@ -114,9 +115,11 @@ export default function Wishlist() {
               <div className="product-image-wrapper">
                 <img
                   src={
-                    product.image.startsWith("http")
+                    product.image?.startsWith("http")
                       ? product.image
-                      : `http://127.0.0.1:8000/${product.image.replace(/^\/+/, "")}`
+                      : product.image
+                        ? `http://127.0.0.1:8000/${product.image.replace(/^\/+/, "")}`
+                        : "https://via.placeholder.com/600x600?text=BeautyShop"
                   }
                   alt={product.name}
                   className="modern-product-image"
@@ -134,6 +137,9 @@ export default function Wishlist() {
               <div className="product-info">
                 <span className="product-category-tag">{product.category_name}</span>
                 <h3 className="product-name">{product.name}</h3>
+                <Link to={`/products/${product.id}`} className="product-inline-link">
+                  View product page
+                </Link>
                 <div className="product-footer">
                   <span className="product-price">{product.price} RON</span>
                   <button

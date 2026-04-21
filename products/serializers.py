@@ -8,16 +8,16 @@ class CategorySerializer(serializers.ModelSerializer):
 
 
 class ProductSerializer(serializers.ModelSerializer):
-    # Image is optional on update (so we can edit other fields without re-uploading)
     image = serializers.ImageField(use_url=True, required=False, allow_null=True)
     category_name = serializers.CharField(source="category.name", read_only=True)
+    similarity_score = serializers.FloatField(read_only=True)
 
     class Meta:
         model = Product
         fields = [
             "id", "name", "description", "specifications",
             "price", "stock", "supplier", "delivery_method",
-            "category", "category_name", "image", "pdf_file"
+            "category", "category_name", "image", "pdf_file", "similarity_score"
         ]
 
 
